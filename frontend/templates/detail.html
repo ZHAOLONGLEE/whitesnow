@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}WhiteSnow — 媒体详情{% endblock %}
+
+{% block extra_css %}
+<style>
+    .episode-card {
+        transition: all 0.2s ease;
+    }
+    .episode-card:hover {
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(127, 168, 80, 0.3);
+        transform: translateY(-2px);
+    }
+    .type-badge {
+        padding: 0.375rem 0.875rem;
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+    .type-badge.anime {
+        background: rgba(127, 168, 80, 0.15);
+        color: #7fa850;
+        border: 1px solid rgba(127, 168, 80, 0.25);
+    }
+    .type-badge.drama {
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+    <div class="max-w-[1400px] mx-auto px-6 lg:px-8 py-10">
+        <!-- Loading state -->
+        <div id="loading" class="flex justify-center py-20">
+            <div class="flex flex-col items-center gap-4">
+                <div class="w-10 h-10 border-2 border-white/10 border-t-leaf rounded-full animate-spin"></div>
+                <span class="text-white/40 text-sm">加载中...</span>
+            </div>
+        </div>
+
+        <!-- Media detail content -->
+        <div id="mediaDetail" class="hidden">
+            <!-- Back button -->
+            <div class="mb-8">
+                <a href="/" class="inline-flex items-center gap-2 text-white/40 hover:text-white transition-colors text-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="19" y1="12" x2="5" y2="12"/>
+                        <polyline points="12 19 5 12 12 5"/>
+                    </svg>
+                    返回
+                </a>
+            </div>
+
+            <!-- Media info section -->
+            <div class="grid md:grid-cols-[280px_1fr] gap-10 mb-16">
+                <!-- Poster -->
+                <div class="w-full">
+                    <div class="aspect-[2/3] rounded-3xl overflow-hidden bg-white/[0.04] border border-white/[0.06] relative">
+                        <img id="mediaCover" src="" class="w-full h-full object-cover hidden" alt="Cover" onerror="this.classList.add('hidden'); document.getElementById('noCover').classList.remove('hidden');">
+                        <div id="noCover" class="w-full h-full flex items-center justify-center bg-gradient-to-br from-white/[0.02] to-white/[0.05]">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="text-white/10">
+                                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/>
+                                <line x1="7" y1="2" x2="7" y2="22"/>
+                                <line x1="17" y1="2" x2="17" y2="22"/>
+                                <line x1="2" y1="12" x2="22" y2="12"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Info -->
+                <div class="flex flex-col justify-center">
+                    <div class="flex items-center gap-3 mb-5">
+                        <span id="mediaType" class="type-badge"></span>
+                        <span id="mediaYear" class="text-white/40 text-sm"></span>
+                    </div>
+
+                    <h1 id="mediaTitle" class="font-serif text-3xl md:text-4xl text-white mb-5 tracking-tight"></h1>
+
+                    <p id="mediaDescription" class="text-white/40 mb-8 leading-relaxed max-w-2xl"></p>
+
+                    <div class="flex items-center gap-8 text-sm">
+                        <div class="flex items-center gap-2 text-white/50">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/>
+                                <line x1="7" y1="2" x2="7" y2="22"/>
+                                <line x1="17" y1="2" x2="17" y2="22"/>
+                                <line x1="2" y1="12" x2="22" y2="12"/>
+                            </svg>
+                            <span id="episodeCount"></span> 集
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Episodes section -->
+            <div>
+                <h2 class="text-lg font-medium text-white/80 mb-6">剧集列表</h2>
+                <div id="episodesList" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        const mediaId = {{ media_id }};
+
+        async function loadMediaDetail() {
+            try {
+                const response = await fetch(`/api/media/${mediaId}`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || '加载失败');
+                }
+
+                renderMediaDetail(data);
+            } catch (error) {
+                console.error('Failed to load media:', error);
+                document.getElementById('loading').innerHTML = `
+                    <div class="text-center py-20">
+                        <p class="text-white/50 text-lg mb-4">${error.message}</p>
+                        <a href="/" class="btn-secondary px-5 py-2.5 rounded-xl text-sm inline-flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <line x1="19" y1="12" x2="5" y2="12"/>
+                                <polyline points="12 19 5 12 12 5"/>
+                            </svg>
+                            返回首页
+                        </a>
+                    </div>
+                `;
+            }
+        }
+
+        function renderMediaDetail(data) {
+            // Type badge
+            const typeBadge = document.getElementById('mediaType');
+            if (data.type === 'anime') {
+                typeBadge.className = 'type-badge anime';
+                typeBadge.textContent = '动漫';
+            } else {
+                typeBadge.className = 'type-badge drama';
+                typeBadge.textContent = '短剧';
+            }
+
+            // Year
+            if (data.year) {
+                document.getElementById('mediaYear').textContent = `${data.year}年`;
+            }
+
+            // Title
+            document.getElementById('mediaTitle').textContent = data.title;
+
+            // Description
+            document.getElementById('mediaDescription').textContent = data.description || '暂无简介';
+
+            // Cover image
+            if (data.cover_path) {
+                const coverImg = document.getElementById('mediaCover');
+                coverImg.src = data.cover_path;
+                coverImg.classList.remove('hidden');
+                document.getElementById('noCover').classList.add('hidden');
+            }
+
+            // Episode count
+            document.getElementById('episodeCount').textContent = data.episodes.length;
+
+            // Episodes list
+            const episodesContainer = document.getElementById('episodesList');
+            if (data.episodes.length === 0) {
+                episodesContainer.innerHTML = '<p class="text-white/30 col-span-full text-center py-12">暂无剧集</p>';
+            } else {
+                episodesContainer.innerHTML = data.episodes.map(ep => `
+                    <a href="/play/${mediaId}/${ep.id}" class="episode-card block p-4 bg-dark-card border border-white/[0.06] rounded-2xl group">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-white/70 group-hover:text-white transition-colors">
+                                第 ${ep.episode_number} 集
+                            </span>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white/20 group-hover:text-leaf transition-colors opacity-0 group-hover:opacity-100">
+                                <polygon points="5 3 19 12 5 21 5 3"/>
+                            </svg>
+                        </div>
+                        ${ep.format ? `<p class="text-xs text-white/25">${ep.format}${ep.file_size ? ' · ' + formatFileSize(ep.file_size) : ''}</p>` : ''}
+                        ${ep.title && ep.title !== `第 ${ep.episode_number} 集` ? `<p class="text-xs text-white/30 mt-1 truncate">${ep.title}</p>` : ''}
+                    </a>
+                `).join('');
+            }
+
+            // Show content, hide loading
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('mediaDetail').classList.remove('hidden');
+        }
+
+        function formatFileSize(bytes) {
+            if (!bytes) return '';
+            if (bytes < 1024 * 1024) {
+                return `${(bytes / 1024).toFixed(1)} KB`;
+            } else if (bytes < 1024 * 1024 * 1024) {
+                return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+            } else {
+                return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+            }
+        }
+
+        // Load on page ready
+        loadMediaDetail();
+    </script>
+{% endblock %}

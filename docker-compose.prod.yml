@@ -1,0 +1,37 @@
+services:
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx-prod.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend:/var/www/html:ro
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: always
+
+  backend:
+    build: ./backend
+    environment:
+      - APP_ENV=production
+      - APP_SECRET=${APP_SECRET}
+      - MEDIA_ROOT=/media
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///./data/mediascan.db}
+      - HOST=0.0.0.0
+      - PORT=8000
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+    volumes:
+      - ./data:/app/data
+      - ${MEDIA_ROOT}:/media:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: always

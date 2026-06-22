@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}WhiteSnow — 家庭媒体中心{% endblock %}</title>
+
+    <!-- TailwindCSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- PWA Support -->
+    <link rel="manifest" href="/static/manifest.json">
+    <meta name="theme-color" content="#7fa850">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        moss: '#3f4f3a',
+                        leaf: '#7fa850',
+                        earth: '#8c7e72',
+                        sky: '#f0f4f1',
+                        paper: '#faf9f6',
+                        dark: '#1a1c18',
+                        'dark-card': '#222520',
+                        'dark-border': '#2d3028',
+                    },
+                    fontFamily: {
+                        serif: ['Instrument Serif', 'Georgia', 'serif'],
+                        sans: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+                    },
+                    borderRadius: {
+                        '4xl': '2.5rem',
+                        '5xl': '3rem',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Noise texture overlay */
+        .noise-overlay::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            opacity: 0.025;
+            z-index: 100;
+            mix-blend-mode: multiply;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+        }
+
+        /* Organic leaf decoration */
+        .leaf-decoration {
+            position: absolute;
+            pointer-events: none;
+            opacity: 0.06;
+        }
+
+        /* Button styles */
+        .btn-primary {
+            background: #7fa850;
+            color: white;
+            transition: all 0.2s ease-out;
+        }
+        .btn-primary:hover {
+            background: #8cb55d;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(127, 168, 80, 0.3);
+        }
+        .btn-primary:active {
+            transform: scale(0.98) translateY(0);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.2s ease-out;
+        }
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        /* Poster card hover */
+        .poster-card {
+            transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        }
+        .poster-card:hover {
+            transform: translateY(-6px);
+        }
+        .poster-card:hover .poster-image {
+            transform: scale(1.05);
+        }
+        .poster-card .poster-image {
+            transition: transform 0.5s ease;
+        }
+
+        /* Filter button */
+        .filter-btn {
+            transition: all 0.2s ease;
+        }
+        .filter-btn.active {
+            background: #7fa850;
+            color: white;
+        }
+        .filter-btn:not(.active) {
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.4);
+        }
+        .filter-btn:not(.active):hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        /* Skeleton loading */
+        .skeleton {
+            background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        /* Selection */
+        ::selection {
+            background: rgba(127, 168, 80, 0.3);
+            color: white;
+        }
+
+        /* Stat card hover */
+        .stat-card {
+            transition: all 0.2s ease;
+        }
+        .stat-card:hover {
+            background: rgba(255, 255, 255, 0.06);
+            transform: translateY(-2px);
+        }
+
+        /* Pagination */
+        .page-btn {
+            transition: all 0.2s ease;
+        }
+        .page-btn.active {
+            background: #7fa850;
+            color: white;
+        }
+        .page-btn:not(.active) {
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.4);
+        }
+        .page-btn:not(.active):hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="bg-dark text-white antialiased noise-overlay min-h-screen">
+    <!-- Navigation -->
+    <nav class="fixed top-0 w-full z-50 transition-all duration-300 border-b border-white/[0.06]">
+        <div class="max-w-[1400px] mx-auto px-6 lg:px-8">
+            <div class="flex items-center justify-between h-[72px]">
+                <div class="flex items-center gap-10">
+                    <!-- Logo -->
+                    <a href="/" class="flex items-center gap-3 group">
+                        <div class="w-9 h-9 bg-leaf/90 rounded-tr-xl rounded-bl-xl flex items-center justify-center text-white group-hover:bg-leaf transition-colors">
+                            ❄
+                        </div>
+                        <span class="font-serif text-2xl text-white tracking-tight">WhiteSnow</span>
+                    </a>
+
+                    <!-- Nav links -->
+                    <div class="hidden md:flex items-center gap-1">
+                        <a href="/" class="px-3 py-1.5 text-sm text-white/50 hover:text-white transition-colors rounded-lg hover:bg-white/5">全部</a>
+                        <a href="/?type=anime" class="px-3 py-1.5 text-sm text-white/50 hover:text-white transition-colors rounded-lg hover:bg-white/5">动漫</a>
+                        <a href="/?type=drama" class="px-3 py-1.5 text-sm text-white/50 hover:text-white transition-colors rounded-lg hover:bg-white/5">短剧</a>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <!-- Search -->
+                    <div class="relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30">
+                            <circle cx="11" cy="11" r="8"/>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                        <input
+                            type="text"
+                            id="searchInput"
+                            placeholder="搜索影片..."
+                            class="w-[220px] lg:w-[260px] pl-10 pr-4 py-2.5 bg-white/[0.04] border border-white/[0.08] rounded-xl text-sm text-white placeholder-white/30 focus:outline-none focus:border-leaf/50 focus:bg-white/[0.06] transition-all"
+                        >
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main content -->
+    <main class="pt-[72px]">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-white/[0.06] mt-24">
+        <div class="max-w-[1400px] mx-auto px-6 lg:px-8 py-12">
+            <div class="grid md:grid-cols-4 gap-10 mb-12">
+                <div class="col-span-1 md:col-span-2">
+                    <div class="flex items-center gap-2.5 mb-5">
+                        <div class="w-7 h-7 bg-leaf/80 rounded-tr-lg rounded-bl-lg flex items-center justify-center text-white text-sm">
+                            ❄
+                        </div>
+                        <span class="font-serif text-xl text-white">WhiteSnow</span>
+                    </div>
+                    <p class="text-white/40 text-sm max-w-xs leading-relaxed">
+                        本地 NAS 动漫和短剧媒体中心，随时在线观看和下载分享。
+                    </p>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-white/80 mb-4 text-xs uppercase tracking-wider">浏览</h4>
+                    <ul class="space-y-2.5 text-white/40 text-sm">
+                        <li><a href="/" class="hover:text-leaf transition-colors">全部媒体</a></li>
+                        <li><a href="/?type=anime" class="hover:text-leaf transition-colors">动漫专区</a></li>
+                        <li><a href="/?type=drama" class="hover:text-leaf transition-colors">短剧专区</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-semibold text-white/80 mb-4 text-xs uppercase tracking-wider">功能</h4>
+                    <ul class="space-y-2.5 text-white/40 text-sm">
+                        <li><span class="text-white/30">在线观看</span></li>
+                        <li><span class="text-white/30">一键下载</span></li>
+                        <li><span class="text-white/30">播放记录</span></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="flex flex-col md:flex-row justify-between items-center text-xs text-white/25 pt-6 border-t border-white/[0.06]">
+                <p>&copy; 2026 WhiteSnow. 家庭媒体中心</p>
+                <div class="flex gap-6 mt-3 md:mt-0">
+                    <span>本地部署</span>
+                    <span>•</span>
+                    <span>隐私优先</span>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        // Global state
+        let currentPage = 1;
+        let currentType = null;
+        let currentSearch = '';
+
+        // Search handler
+        document.getElementById('searchInput').addEventListener('keyup', function(e) {
+            if (e.key === 'Enter') {
+                currentSearch = this.value;
+                currentPage = 1;
+                loadMedia();
+            }
+        });
+
+        // Load media from API
+        async function loadMedia() {
+            let url = `/api/media?page=${currentPage}&page_size=20`;
+
+            if (currentType) {
+                url += `&type=${currentType}`;
+            }
+
+            if (currentSearch) {
+                url += `&search=${encodeURIComponent(currentSearch)}`;
+            }
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                renderMediaGrid(data.items);
+                renderPagination(data);
+            } catch (error) {
+                console.error('Failed to load media:', error);
+            }
+        }
+
+        // Scan media library
+        async function startScan() {
+            try {
+                const response = await fetch('/api/scan/start', { method: 'POST' });
+                const data = await response.json();
+
+                if (response.ok) {
+                    const btn = event.target.closest('button');
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '<svg class="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>扫描中...';
+                    btn.disabled = true;
+                    
+                    pollScanStatus(data.scan_id, btn, originalText);
+                } else {
+                    alert(data.detail || '扫描失败');
+                }
+            } catch (error) {
+                console.error('Failed to start scan:', error);
+                alert('扫描失败，请检查媒体库路径配置');
+            }
+        }
+
+        async function pollScanStatus(scanId, btn, originalText) {
+            const poll = async () => {
+                try {
+                    const response = await fetch('/api/scan/status');
+                    const data = await response.json();
+
+                    if (data.status === 'completed' || data.status === 'failed') {
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                        
+                        if (data.status === 'completed') {
+                            alert(`扫描完成！已扫描 ${data.items_scanned} 个文件夹`);
+                        } else {
+                            alert(`扫描失败：${data.error_message || '未知错误'}`);
+                        }
+                        loadMedia();
+                        return;
+                    }
+
+                    setTimeout(poll, 2000);
+                } catch (error) {
+                    console.error('Poll error:', error);
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            };
+
+            poll();
+        }
+
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/sw.js')
+                    .then((registration) => {
+                        console.log('[PWA] Service Worker registered:', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.log('[PWA] Service Worker registration failed:', error);
+                    });
+            });
+        }
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

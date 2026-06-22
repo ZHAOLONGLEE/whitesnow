@@ -1,0 +1,387 @@
+{% extends "base.html" %}
+
+{% block title %}WhiteSnow — 正在播放{% endblock %}
+
+{% block extra_css %}
+    <!-- Video.js CDN -->
+    <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet">
+    <style>
+        .video-js {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 16/9;
+            border-radius: 1.5rem;
+            overflow: hidden;
+        }
+
+        .video-js .vjs-big-play-button {
+            background-color: rgba(127, 168, 80, 0.8);
+            border-color: rgba(127, 168, 80, 0.8);
+            border-radius: 1rem;
+            width: 64px;
+            height: 64px;
+            line-height: 64px;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .video-js .vjs-big-play-button:hover {
+            background-color: #7fa850;
+            border-color: #7fa850;
+        }
+
+        .episode-nav {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+        }
+
+        .episode-nav::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .episode-nav::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .episode-nav::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+        }
+
+        .episode-item {
+            transition: all 0.2s ease;
+        }
+        .episode-item:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+        .episode-item.active {
+            background: rgba(127, 168, 80, 0.15);
+            border-color: rgba(127, 168, 80, 0.3);
+        }
+        .episode-item.active .episode-title {
+            color: #7fa850;
+        }
+
+        .nav-btn {
+            transition: all 0.2s ease;
+        }
+        .nav-btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .nav-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+    </style>
+{% endblock %}
+
+{% block content %}
+    <div class="max-w-[1400px] mx-auto px-6 lg:px-8 py-10">
+        <!-- Back button -->
+        <div class="mb-6">
+            <a href="/media/{{ media_id }}" class="inline-flex items-center gap-2 text-white/40 hover:text-white transition-colors text-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="19" y1="12" x2="5" y2="12"/>
+                    <polyline points="12 19 5 12 12 5"/>
+                </svg>
+                返回
+            </a>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Video player -->
+            <div class="lg:col-span-2">
+                <div class="bg-dark-card rounded-3xl overflow-hidden border border-white/[0.06]">
+                    <video
+                        id="videoPlayer"
+                        class="video-js vjs-big-play-centered"
+                        controls
+                        preload="auto"
+                        data-setup='{}'
+                    >
+                        <p class="vjs-no-js">
+                            请启用 JavaScript 来观看视频
+                        </p>
+                    </video>
+                </div>
+
+                <!-- Episode info -->
+                <div class="mt-6">
+                    <h2 id="currentEpisodeTitle" class="text-xl font-medium text-white mb-3"></h2>
+                    <div class="flex items-center gap-4 text-sm text-white/40">
+                        <span id="currentEpisodeInfo"></span>
+                        <button
+                            onclick="downloadEpisode()"
+                            class="inline-flex items-center gap-1.5 text-white/40 hover:text-leaf transition-colors"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            下载
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Navigation -->
+                <div class="flex items-center justify-between mt-8 pt-6 border-t border-white/[0.06]">
+                    <button
+                        id="prevEpisode"
+                        onclick="playEpisode('prev')"
+                        class="nav-btn px-5 py-2.5 rounded-xl text-sm text-white/50 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                        <span class="flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="15 18 9 12 15 6"/>
+                            </svg>
+                            上一集
+                        </span>
+                    </button>
+
+                    <span id="episodePosition" class="text-sm text-white/30"></span>
+
+                    <button
+                        id="nextEpisode"
+                        onclick="playEpisode('next')"
+                        class="nav-btn px-5 py-2.5 rounded-xl text-sm text-white/50 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                        <span class="flex items-center gap-2">
+                            下一集
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="9 18 15 12 9 6"/>
+                            </svg>
+                        </span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Episode list sidebar -->
+            <div class="lg:col-span-1">
+                <h3 class="text-sm font-medium text-white/60 mb-4 uppercase tracking-wider">剧集列表</h3>
+                <div id="sidebarEpisodes" class="episode-nav space-y-2 max-h-[600px] overflow-y-auto pr-2">
+                    <!-- Loading state -->
+                    <div class="flex justify-center py-12">
+                        <div class="w-8 h-8 border-2 border-white/10 border-t-leaf rounded-full animate-spin"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block extra_js %}
+    <!-- Video.js -->
+    <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
+
+    <script>
+        const mediaId = {{ media_id }};
+        const currentEpisodeId = {{ episode_id }};
+        let episodes = [];
+        let currentIndex = 0;
+        let player = null;
+
+        async function loadEpisodes() {
+            try {
+                const response = await fetch(`/api/media/${mediaId}/episodes`);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || '加载失败');
+                }
+
+                episodes = data.episodes;
+                currentIndex = episodes.findIndex(ep => ep.id === currentEpisodeId);
+
+                if (currentIndex === -1) {
+                    currentIndex = 0;
+                }
+
+                renderEpisodes();
+                playCurrentEpisode();
+            } catch (error) {
+                console.error('Failed to load episodes:', error);
+                document.getElementById('sidebarEpisodes').innerHTML = `
+                    <p class="text-white/30 text-center py-12">${error.message}</p>
+                `;
+            }
+        }
+
+        function renderEpisodes() {
+            const container = document.getElementById('sidebarEpisodes');
+
+            container.innerHTML = episodes.map((ep, index) => `
+                <a
+                    href="#"
+                    onclick="playEpisodeByIndex(${index}); return false;"
+                    class="episode-item block p-3.5 rounded-xl border border-transparent ${index === currentIndex ? 'active' : ''}"
+                >
+                    <div class="flex items-center justify-between">
+                        <span class="episode-title text-sm font-medium ${index === currentIndex ? 'text-leaf' : 'text-white/60'}">
+                            第 ${ep.episode_number} 集
+                        </span>
+                        ${index === currentIndex ? '<span class="text-xs text-leaf/60">正在播放</span>' : ''}
+                    </div>
+                    ${ep.title && ep.title !== `第 ${ep.episode_number} 集` ? `<p class="text-xs text-white/25 mt-1 truncate">${ep.title}</p>` : ''}
+                </a>
+            `).join('');
+        }
+
+        function playCurrentEpisode() {
+            const ep = episodes[currentIndex];
+
+            // Update video source
+            if (player) {
+                player.src({
+                    src: `/api/stream/${mediaId}/${ep.id}`,
+                    type: 'video/mp4'
+                });
+
+                // Restore progress if available
+                restoreProgress(ep.id).then(progress => {
+                    if (progress && progress > 0) {
+                        player.currentTime(progress);
+                    }
+                    player.play().catch(e => console.log('Auto-play prevented:', e));
+                });
+            }
+
+            // Update UI
+            document.getElementById('currentEpisodeTitle').textContent =
+                ep.title || `第 ${ep.episode_number} 集`;
+
+            let info = `格式: ${ep.format || '未知'}`;
+            if (ep.file_size) {
+                info += ` · ${formatFileSize(ep.file_size)}`;
+            }
+            document.getElementById('currentEpisodeInfo').textContent = info;
+
+            // Update position text
+            document.getElementById('episodePosition').textContent =
+                `${currentIndex + 1} / ${episodes.length}`;
+
+            // Update navigation buttons
+            document.getElementById('prevEpisode').disabled = currentIndex === 0;
+            document.getElementById('nextEpisode').disabled = currentIndex === episodes.length - 1;
+
+            // Re-render sidebar to highlight current
+            renderEpisodes();
+
+            // Save progress
+            saveProgress(ep.id);
+        }
+
+        function playEpisode(direction) {
+            if (direction === 'prev' && currentIndex > 0) {
+                currentIndex--;
+            } else if (direction === 'next' && currentIndex < episodes.length - 1) {
+                currentIndex++;
+            } else {
+                return;
+            }
+            playCurrentEpisode();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function playEpisodeByIndex(index) {
+            currentIndex = index;
+            playCurrentEpisode();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function downloadEpisode() {
+            const ep = episodes[currentIndex];
+            window.location.href = `/api/download/${ep.id}`;
+        }
+
+        function saveProgress(episodeId) {
+            // Save to localStorage for now
+            const progress = JSON.parse(localStorage.getItem('whitesnow_progress') || '{}');
+            progress[mediaId] = {
+                episodeId: episodeId,
+                timestamp: Date.now()
+            };
+            localStorage.setItem('whitesnow_progress', JSON.stringify(progress));
+        }
+
+        function formatFileSize(bytes) {
+            if (!bytes) return '';
+            if (bytes < 1024 * 1024) {
+                return `${(bytes / 1024).toFixed(1)} KB`;
+            } else if (bytes < 1024 * 1024 * 1024) {
+                return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+            } else {
+                return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+            }
+        }
+
+        // Play history functions
+        async function restoreProgress(episodeId) {
+            try {
+                const response = await fetch(`/api/history/${mediaId}/continue`);
+                const data = await response.json();
+
+                if (data && data.episode_id === episodeId && data.progress_seconds) {
+                    // Only restore if not completed and progress is less than 90% of duration
+                    if (!data.completed && data.duration_seconds &&
+                        data.progress_seconds < data.duration_seconds * 0.9) {
+                        console.log(`Restoring progress: ${data.progress_seconds}s`);
+                        return data.progress_seconds;
+                    }
+                }
+                return 0;
+            } catch (error) {
+                console.error('Failed to restore progress:', error);
+                return 0;
+            }
+        }
+
+        function savePlayProgress() {
+            if (!player || !episodes[currentIndex]) return;
+
+            const ep = episodes[currentIndex];
+            const currentTime = player.currentTime();
+            const duration = player.duration();
+
+            // Only save if we have valid times
+            if (currentTime > 0 && duration > 0) {
+                fetch('/api/history/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        media_id: mediaId,
+                        episode_id: ep.id,
+                        progress_seconds: Math.floor(currentTime),
+                        duration_seconds: Math.floor(duration),
+                        completed: currentTime > duration * 0.9
+                    })
+                }).catch(e => console.error('Failed to save progress:', e));
+            }
+        }
+
+        // Initialize video player
+        document.addEventListener('DOMContentLoaded', () => {
+            player = videojs('videoPlayer', {
+                controls: true,
+                autoplay: false,
+                preload: 'auto',
+                fluid: true,
+                playbackRates: [0.5, 1, 1.25, 1.5, 2]
+            });
+
+            // Save progress periodically
+            setInterval(savePlayProgress, 10000); // Every 10 seconds
+
+            // Save progress when video ends
+            player.on('ended', () => {
+                savePlayProgress();
+            });
+
+            // Save progress when leaving page
+            window.addEventListener('beforeunload', savePlayProgress);
+
+            loadEpisodes();
+        });
+    </script>
+{% endblock %}
