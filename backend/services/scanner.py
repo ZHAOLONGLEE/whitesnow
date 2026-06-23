@@ -199,31 +199,19 @@ class MediaScanner:
             )
             await conn.commit()
 
-    def _find_cover_image(self, folders: List[Path], title_key: str) -> Optional[str]:
-        """Find and copy cover image from media folders."""
-        # Priority 1: Look for standard cover names in any folder
-        for folder in folders:
-            for file in folder.iterdir():
-                if file.is_file() and file.suffix.lower() in COVER_EXTENSIONS:
-                    # Check if it's a known cover name
-                    name_lower = file.stem.lower()
-                    if name_lower in COVER_NAMES:
-                        return self._copy_cover(file, title_key)
+    def _find_cover_image(self, show_folder: Path, clean_title: str) -> Optional[str]:
+        """Look for a cover image in the show folder root and its direct subfolders."""
+        search_dirs = [show_folder] + [d for d in show_folder.iterdir() if d.is_dir()]
 
-        # Priority 2: Look for any image file in the first folder
-        if folders:
-            for file in folders[0].iterdir():
+        for directory in search_dirs:
+            for file in directory.iterdir():
                 if file.is_file() and file.suffix.lower() in COVER_EXTENSIONS:
-                    return self._copy_cover(file, title_key)
+                    if file.stem.lower() in COVER_NAMES:
+                        return self._copy_cover(file, clean_title)
 
-        # Priority 3: Look for image in parent directory (if folder has episode suffix)
-        for folder in folders:
-            parent_images = [
-                f for f in folder.parent.iterdir()
-                if f.is_file() and f.suffix.lower() in COVER_EXTENSIONS
-            ]
-            if parent_images:
-                return self._copy_cover(parent_images[0], title_key)
+        for file in show_folder.iterdir():
+            if file.is_file() and file.suffix.lower() in COVER_EXTENSIONS:
+                return self._copy_cover(file, clean_title)
 
         return None
 
@@ -374,6 +362,13 @@ class MediaScanner:
 
         season_counters[season] = season_counters.get(season, 0) + 1
         return season, season_counters[season], name
+
+    def _find_video_files(self, show_folder: Path) -> List[Path]:
+        """Recursively find every video file under a show folder, any depth."""
+        return sorted(
+            p for p in show_folder.rglob("*")
+            if p.is_file() and p.suffix.lower() in VIDEO_EXTENSIONS
+        )
 
     def _determine_type(self, name: str) -> str:
         """Determine if media is anime or drama."""
