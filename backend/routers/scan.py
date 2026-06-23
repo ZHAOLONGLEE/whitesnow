@@ -44,8 +44,19 @@ async def run_scan(scan_id: int):
     """Run media scan in background."""
     import traceback
     print(f"Starting scan task {scan_id}...")
+
+    async def report_progress(items_scanned: int, items_added: int, total: int):
+        async with db.connect() as conn:
+            await conn.execute(
+                """UPDATE scan_log
+                   SET items_scanned = ?, items_added = ?, total_items = ?
+                   WHERE id = ?""",
+                [items_scanned, items_added, total, scan_id]
+            )
+            await conn.commit()
+
     try:
-        result = await scanner.scan()
+        result = await scanner.scan(on_progress=report_progress)
         print(f"Scan completed: {result}")
 
         async with db.connect() as conn:
@@ -54,9 +65,10 @@ async def run_scan(scan_id: int):
                    SET finished_at = CURRENT_TIMESTAMP,
                        status = 'completed',
                        items_scanned = ?,
-                       items_added = ?
+                       items_added = ?,
+                       total_items = ?
                    WHERE id = ?""",
-                [result["items_scanned"], result["items_added"], scan_id]
+                [result["items_scanned"], result["items_added"], result["total"], scan_id]
             )
             await conn.commit()
             print(f"Scan log updated for task {scan_id}")
@@ -97,6 +109,7 @@ async def get_scan_status():
             "finished_at": log["finished_at"],
             "items_scanned": log["items_scanned"],
             "items_added": log["items_added"],
+            "total_items": log["total_items"],
         }
 
 

@@ -118,6 +118,16 @@ class Database:
                     if "duplicate column" not in str(e).lower():
                         raise
 
+            # Migration: scan_log.total_items (live progress reporting)
+            try:
+                await conn.execute(
+                    "ALTER TABLE scan_log ADD COLUMN total_items INTEGER"
+                )
+                await conn.commit()
+            except sqlite3.OperationalError as e:
+                if "duplicate column" not in str(e).lower():
+                    raise
+
     async def close(self):
         """Close database connection."""
         pass  # aiosqlite connections are short-lived

@@ -66,14 +66,20 @@ class MediaScanner:
             name.strip() for name in settings.media_exclude_folders.split(",") if name.strip()
         }
 
-    async def scan(self) -> Dict:
-        """Main scan entry point."""
+    async def scan(self, on_progress=None) -> Dict:
+        """Main scan entry point.
+
+        on_progress, if given, is awaited as on_progress(items_scanned,
+        items_added, total) after every show folder is processed, so a
+        caller can report live progress for large libraries.
+        """
         self.items_scanned = 0
         self.items_added = 0
 
         if not self.media_root.exists():
             raise FileNotFoundError(f"Media root not found: {self.media_root}")
 
+        show_folders = []
         for category_folder in sorted(self.media_root.iterdir()):
             if not category_folder.is_dir():
                 continue
@@ -84,13 +90,19 @@ class MediaScanner:
             type_name = category_folder.name
 
             for show_folder in sorted(category_folder.iterdir()):
-                if not show_folder.is_dir():
-                    continue
-                await self._process_show(type_name, show_folder)
+                if show_folder.is_dir():
+                    show_folders.append((type_name, show_folder))
+
+        total = len(show_folders)
+        for type_name, show_folder in show_folders:
+            await self._process_show(type_name, show_folder)
+            if on_progress:
+                await on_progress(self.items_scanned, self.items_added, total)
 
         return {
             "items_scanned": self.items_scanned,
-            "items_added": self.items_added
+            "items_added": self.items_added,
+            "total": total
         }
 
     async def _process_show(self, type_name: str, show_folder: Path):
