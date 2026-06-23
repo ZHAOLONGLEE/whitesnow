@@ -251,7 +251,7 @@
         }
 
         // Load media
-        function renderMediaGrid(items) {
+        function renderMediaGrid(items, total) {
             const grid = document.getElementById('mediaGrid');
             const emptyState = document.getElementById('emptyState');
             
@@ -291,7 +291,7 @@
                 </a>
             `).join('');
 
-            document.getElementById('resultCount').textContent = `共 ${items.length} 部`;
+            document.getElementById('resultCount').textContent = `共 ${total ?? items.length} 部`;
         }
 
         // Pagination

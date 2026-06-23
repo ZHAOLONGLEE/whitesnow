@@ -304,7 +304,7 @@
             try {
                 const response = await fetch(url);
                 const data = await response.json();
-                renderMediaGrid(data.items);
+                renderMediaGrid(data.items, data.total);
                 renderPagination(data);
             } catch (error) {
                 console.error('Failed to load media:', error);
