@@ -8,6 +8,12 @@ from fastapi.responses import StreamingResponse
 from config import settings
 from database import db
 
+# The system mimetypes table maps .ts to Qt Linguist translation files
+# (text/vnd.trolltech.linguist) on some platforms; .ts/.m2ts here are always
+# MPEG transport streams, so register the correct type explicitly.
+mimetypes.add_type("video/mp2t", ".ts")
+mimetypes.add_type("video/mp2t", ".m2ts")
+
 router = APIRouter()
 
 

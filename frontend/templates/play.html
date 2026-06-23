@@ -232,10 +232,12 @@
             const ep = episodes[currentIndex];
 
             // Update video source
+            // No explicit MIME type: the stream endpoint sets the correct
+            // Content-Type header per file (mp4/mkv/etc.), and hardcoding
+            // video/mp4 here was overriding that for every other format.
             if (player) {
                 player.src({
-                    src: `/api/stream/${mediaId}/${ep.id}`,
-                    type: 'video/mp4'
+                    src: `/api/stream/${mediaId}/${ep.id}`
                 });
 
                 // Restore progress if available
