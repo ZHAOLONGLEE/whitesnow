@@ -314,7 +314,7 @@
         }
 
         // Scan media library
-        async function startScan() {
+        async function startScan(event) {
             try {
                 const response = await fetch('/api/scan/start', { method: 'POST' });
                 const data = await response.json();
