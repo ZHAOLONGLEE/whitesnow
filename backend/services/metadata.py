@@ -6,6 +6,7 @@ Queries CSPT (Douban-like) and TMDB to fetch media details.
 import httpx
 import re
 import asyncio
+from pathlib import Path
 from typing import Optional, Dict
 from config import settings
 from database import db
@@ -121,7 +122,7 @@ class MetadataScraper:
                 if "png" in response.headers.get("content-type", ""):
                     ext = ".png"
                 
-                dest_path = settings.cover_storage / f"{filename}{ext}"
+                dest_path = Path(settings.cover_storage) / f"{filename}{ext}"
                 dest_path.write_bytes(response.content)
                 
                 return f"/static/covers/{dest_path.name}"
