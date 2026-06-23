@@ -2,10 +2,8 @@
 Media scanner service — scans NAS directory and populates database.
 """
 
-import os
 import re
 import shutil
-import asyncio
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from pypinyin import pinyin, Style
@@ -30,19 +28,6 @@ COVER_NAMES = {
     "poster", "cover", "folder", "thumb", "thumbnail",
     "fanart", "banner", "landscape", "portrait"
 }
-
-# Anime keywords (Chinese)
-ANIME_KEYWORDS = {
-    "动漫", "动画", "番剧", "国漫", "日漫", "anime"
-}
-
-# Drama keywords (Chinese)
-DRAMA_KEYWORDS = {
-    "短剧", "电视剧", "网剧", "drama"
-}
-
-# Pattern to match episode info at the end of folder names
-EPISODE_PATTERN = re.compile(r'(?:[\.。·_]\s*(?:第\s*)?(\d+)\s*(?:集 | 话 | 話 | 期|EP|E|Episode)?\s*)+$', re.IGNORECASE)
 
 # S01E01 style season+episode marker
 SEASON_EPISODE_PATTERN = re.compile(r'[Ss](\d{1,2})[Ee](\d{1,3})')
@@ -77,125 +62,98 @@ class MediaScanner:
         if not self.media_root.exists():
             raise FileNotFoundError(f"Media root not found: {self.media_root}")
 
-        # Group folders by main title
-        media_groups = self._group_folders_by_title()
+        for category_folder in sorted(self.media_root.iterdir()):
+            if not category_folder.is_dir():
+                continue
+            type_name = category_folder.name
 
-        # Process each group
-        for title_key, folders in media_groups.items():
-            await self._scan_media_group(title_key, folders)
+            for show_folder in sorted(category_folder.iterdir()):
+                if not show_folder.is_dir():
+                    continue
+                await self._process_show(type_name, show_folder)
 
         return {
             "items_scanned": self.items_scanned,
             "items_added": self.items_added
         }
 
-    def _group_folders_by_title(self) -> Dict[str, List[Path]]:
-        """Group folders by their main title (without episode info)."""
-        groups = {}
+    async def _process_show(self, type_name: str, show_folder: Path):
+        """Scan a single show folder (category/show), recursing for episodes."""
+        video_files = self._find_video_files(show_folder)
+        if not video_files:
+            return
 
-        for item in sorted(self.media_root.iterdir()):
-            if item.is_dir():
-                title_key = self._extract_main_title(item.name)
-                if title_key not in groups:
-                    groups[title_key] = []
-                groups[title_key].append(item)
+        title = show_folder.name
+        clean_title = re.sub(r'[^a-zA-Z0-9一-鿿]', '', title).lower()
+        title_pinyin = self._generate_pinyin(title)
+        year_match = re.search(r'(20\d{2})', title)
+        year = int(year_match.group(1)) if year_match else None
 
-        return groups
+        local_cover = self._find_cover_image(show_folder, clean_title)
+        meta_data = await self.scraper.scrape(title)
 
-    def _extract_main_title(self, folder_name: str) -> str:
-        """Extract main title from folder name, removing episode info."""
-        # Remove episode patterns like ".第 01 集" or ".E01" or ".EP01"
-        main_title = EPISODE_PATTERN.sub('', folder_name)
-
-        # Also remove common separators at the end
-        main_title = main_title.rstrip('.。·_ ')
-
-        if not main_title:
-            main_title = folder_name
-
-        return main_title.lower()
-
-    async def _scan_media_group(self, title_key: str, folders: List[Path]):
-        """Scan a group of folders that belong to the same media."""
-        # Use the first folder to get title info
-        first_folder = folders[0]
-        title_info = self._parse_folder_name(first_folder.name)
-
-        # Determine type
-        all_names = [f.name for f in folders]
-        media_type = self._determine_type(' '.join(all_names))
-
-        # 1. Find local cover first
-        local_cover = self._find_cover_image(folders, title_info["clean_title"])
-
-        # 2. Scrape metadata (CSPT/TMDB)
-        meta_data = await self.scraper.scrape(title_info["display_title"])
-        
-        # 3. Process scraped data
         online_cover = None
         if meta_data.get("cover_url"):
             online_cover = await self.scraper.download_and_save_cover(
-                meta_data["cover_url"], 
-                title_info["clean_title"]
+                meta_data["cover_url"], clean_title
             )
-        
-        # Priority: Local > Online
+
         final_cover = local_cover or online_cover
         final_description = meta_data.get("description")
-        final_year = meta_data.get("year") or title_info.get("year")
+        final_year = meta_data.get("year") or year
         final_rating = meta_data.get("rating")
 
         async with db.connect() as conn:
-            # Check if already exists
             existing = await conn.execute(
                 "SELECT id FROM media WHERE title_clean = ?",
-                [title_info["clean_title"]]
+                [clean_title]
             )
             existing_row = await existing.fetchone()
 
             if existing_row:
                 media_id = existing_row["id"]
-                # Clear old episodes for re-scan
                 await conn.execute("DELETE FROM episodes WHERE media_id = ?", [media_id])
             else:
-                # Insert new media
                 result = await conn.execute(
                     """INSERT INTO media (
                         title, title_original, title_clean, title_pinyin, type, category,
                         year, total_episodes, cover_path, description, rating
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     [
-                        title_info["display_title"],
-                        first_folder.name,
-                        title_info["clean_title"],
-                        title_info.get("title_pinyin", ""),
-                        media_type,
-                        title_info.get("category"),
-                        final_year,
-                        0,
-                        final_cover,
-                        final_description,
-                        final_rating
+                        title, show_folder.name, clean_title, title_pinyin, type_name, None,
+                        final_year, 0, final_cover, final_description, final_rating
                     ]
                 )
                 await conn.commit()
                 media_id = result.lastrowid
                 self.items_added += 1
 
-            self.items_scanned += len(folders)
+            self.items_scanned += 1
 
-            # Scan all folders in this group
-            total_episodes = 0
-            for folder in folders:
-                episode_count = await self._scan_episodes(folder, media_id, total_episodes)
-                total_episodes += episode_count
+            season_counters: Dict[int, int] = {}
+            for video_file in video_files:
+                season, episode_number, ep_title = self._parse_season_episode(
+                    video_file, show_folder, season_counters
+                )
+                file_size = video_file.stat().st_size
 
-            # Update total episode count and cover path
+                await conn.execute(
+                    """INSERT INTO episodes (
+                        media_id, season, episode_number, title, file_path,
+                        file_size, format
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    [
+                        media_id, season, episode_number, ep_title, str(video_file),
+                        file_size, video_file.suffix.lstrip(".").upper()
+                    ]
+                )
+                await conn.commit()
+
             await conn.execute(
-                """UPDATE media 
-                   SET total_episodes = ?, cover_path = ?, description = ?, rating = ? 
+                """UPDATE media
+                   SET total_episodes = ?, type = ?, cover_path = ?, description = ?, rating = ?
                    WHERE id = ?""",
-                [total_episodes, final_cover, final_description, final_rating, media_id]
+                [len(video_files), type_name, final_cover, final_description, final_rating, media_id]
             )
             await conn.commit()
 
@@ -231,88 +189,6 @@ class MediaScanner:
         except Exception as e:
             print(f"Failed to copy cover: {e}")
             return None
-
-    async def _scan_episodes(self, folder: Path, media_id: int, start_num: int) -> int:
-        """Scan video files in a folder."""
-        episodes = []
-        episode_num = start_num + 1
-
-        # Supported video files
-        video_files = sorted([
-            f for f in folder.iterdir()
-            if f.is_file() and f.suffix.lower() in VIDEO_EXTENSIONS
-        ])
-
-        async with db.connect() as conn:
-            for video_file in video_files:
-                file_size = video_file.stat().st_size
-                episode_info = self._parse_episode_name(video_file.name, episode_num)
-
-                await conn.execute(
-                    """INSERT INTO episodes (
-                        media_id, episode_number, title, file_path,
-                        file_size, format
-                    ) VALUES (?, ?, ?, ?, ?, ?)""",
-                    [
-                        media_id,
-                        episode_info["number"],
-                        episode_info.get("title"),
-                        str(video_file),
-                        file_size,
-                        video_file.suffix.lstrip(".").upper()
-                    ]
-                )
-                await conn.commit()
-
-                episodes.append(episode_info)
-                episode_num += 1
-
-        return len(episodes)
-
-    def _parse_folder_name(self, name: str) -> Dict:
-        """
-        Parse media folder name to extract title, year, etc.
-        Handles formats like:
-        - 一剑破八荒.一剑斩妖邪.Yi.Jian.Po.Ba.Hua...
-        - (新) 王牌神医.(Xin).Wang.Pai.Shen.Yi...
-        - 18 岁太奶在线教训.18.Sui.Tai.Nai.Zai.Xia...
-        """
-        # Remove leading numbering/special chars
-        clean = re.sub(r'^[（(] 新 [）)]\s*', '', name)
-
-        # Remove episode info
-        clean = EPISODE_PATTERN.sub('', clean)
-
-        # Try to extract Chinese title (before first dot or special marker)
-        parts = re.split(r'[.。·]', clean)
-
-        # Get the first meaningful part as main title
-        main_title = ""
-        for part in parts:
-            part = part.strip()
-            if part and not part.isdigit():
-                main_title = part
-                break
-
-        if not main_title:
-            main_title = name
-
-        # Try to extract year
-        year_match = re.search(r'(20\d{2})', name)
-        year = int(year_match.group(1)) if year_match else None
-
-        # Clean title for search/indexing
-        clean_title = re.sub(r'[^a-zA-Z0-9\u4e00-\u9fff]', '', main_title).lower()
-
-        # Generate pinyin for search
-        title_pinyin = self._generate_pinyin(main_title)
-
-        return {
-            "display_title": main_title,
-            "clean_title": clean_title,
-            "title_pinyin": title_pinyin,
-            "year": year,
-        }
 
     def _generate_pinyin(self, text: str) -> str:
         """Generate pinyin from Chinese text for search."""
@@ -369,47 +245,3 @@ class MediaScanner:
             p for p in show_folder.rglob("*")
             if p.is_file() and p.suffix.lower() in VIDEO_EXTENSIONS
         )
-
-    def _determine_type(self, name: str) -> str:
-        """Determine if media is anime or drama."""
-        name_lower = name.lower()
-
-        for keyword in DRAMA_KEYWORDS:
-            if keyword.lower() in name_lower:
-                return "drama"
-
-        for keyword in ANIME_KEYWORDS:
-            if keyword.lower() in name_lower:
-                return "anime"
-
-        # Default: try to guess based on patterns
-        if any(c in name for c in ['番', '集', '话', '季']):
-            return "anime"
-
-        return "drama"  # Default to drama
-
-    def _parse_episode_name(self, filename: str, fallback_num: int) -> Dict:
-        """Parse episode filename to extract episode number and title."""
-        # Remove extension
-        base = Path(filename).stem
-
-        # Try to find episode number patterns
-        ep_match = re.search(
-            r'(?:[Ee][Pp]?|第|集|話|话)\s*(\d+)',
-            base,
-            re.IGNORECASE
-        )
-
-        if ep_match:
-            episode_num = int(ep_match.group(1))
-            title = base[:ep_match.start()].strip()
-            if not title:
-                title = f"第 {episode_num} 集"
-        else:
-            episode_num = fallback_num
-            title = base
-
-        return {
-            "number": episode_num,
-            "title": title
-        }
