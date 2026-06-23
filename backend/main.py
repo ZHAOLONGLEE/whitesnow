@@ -38,7 +38,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="WhiteSnow",
     description="家庭媒体中心 — 本地 NAS 动漫/短剧在线观看",
-    version="0.1.0",
+    version="0.1.1",
     lifespan=lifespan
 )
 
@@ -103,4 +103,4 @@ async def play_page(request: Request, media_id: int, episode_id: int):
 @app.get("/health")
 async def health():
     """Health check endpoint."""
-    return {"status": "ok", "version": "0.1.0"}
+    return {"status": "ok", "version": "0.1.1"}
