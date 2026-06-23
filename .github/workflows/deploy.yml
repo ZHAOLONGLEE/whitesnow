@@ -1,0 +1,33 @@
+name: Deploy to QNAP NAS
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, qnap]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Sync to deployment directory
+        run: |
+          rsync -a \
+            --exclude='.git' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            --exclude='data' \
+            --exclude='static' \
+            "$GITHUB_WORKSPACE"/ /share/Container/whitesnow/
+
+      - name: Rebuild and restart containers
+        run: |
+          cd /share/Container/whitesnow
+          docker compose up -d --build
+
+      - name: Show status
+        run: |
+          cd /share/Container/whitesnow
+          docker compose ps

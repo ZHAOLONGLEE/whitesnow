@@ -1,0 +1,21 @@
+services:
+  github-runner:
+    image: myoung34/github-runner:latest
+    container_name: whitesnow-ci-runner
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      - REPO_URL=https://github.com/ZHAOLONGLEE/whitesnow
+      - RUNNER_NAME=qnap-nas
+      - RUNNER_SCOPE=repo
+      - ACCESS_TOKEN=${GH_ACCESS_TOKEN}
+      - LABELS=self-hosted,qnap
+      - RUNNER_WORKDIR=/tmp/runner/work
+      - DISABLE_AUTO_UPDATE=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /share/Container/whitesnow:/share/Container/whitesnow
+      - runner-work:/tmp/runner/work
+
+volumes:
+  runner-work:
