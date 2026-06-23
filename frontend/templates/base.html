@@ -200,11 +200,11 @@
                         <span class="font-serif text-2xl text-white tracking-tight">WhiteSnow</span>
                     </a>
 
-                    <!-- Nav links -->
+                    <!-- Nav links: type-specific filtering lives in the dynamic
+                         filter buttons on the homepage itself (driven by
+                         /api/media/types), not here -->
                     <div class="hidden md:flex items-center gap-1">
                         <a href="/" class="px-3 py-1.5 text-sm text-white/50 hover:text-white transition-colors rounded-lg hover:bg-white/5">全部</a>
-                        <a href="/?type=anime" class="px-3 py-1.5 text-sm text-white/50 hover:text-white transition-colors rounded-lg hover:bg-white/5">动漫</a>
-                        <a href="/?type=drama" class="px-3 py-1.5 text-sm text-white/50 hover:text-white transition-colors rounded-lg hover:bg-white/5">短剧</a>
                     </div>
                 </div>
 
@@ -251,8 +251,6 @@
                     <h4 class="font-semibold text-white/80 mb-4 text-xs uppercase tracking-wider">浏览</h4>
                     <ul class="space-y-2.5 text-white/40 text-sm">
                         <li><a href="/" class="hover:text-leaf transition-colors">全部媒体</a></li>
-                        <li><a href="/?type=anime" class="hover:text-leaf transition-colors">动漫专区</a></li>
-                        <li><a href="/?type=drama" class="hover:text-leaf transition-colors">短剧专区</a></li>
                     </ul>
                 </div>
                 <div>
