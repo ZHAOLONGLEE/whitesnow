@@ -20,6 +20,8 @@ jobs:
             --exclude='.env.*' \
             --exclude='data' \
             --exclude='static' \
+            --exclude='docker-compose.yml' \
+            --exclude='docker-compose.prod.yml' \
             "$GITHUB_WORKSPACE"/ /share/Container/whitesnow/
 
       - name: Rebuild and restart containers
