@@ -120,6 +120,8 @@ class MediaScanner:
                         year, total_episodes, cover_path, description, rating
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     [
+                        # category is no longer populated — superseded by type (the
+                        # literal NAS category-folder name); column kept for schema compat.
                         title, show_folder.name, clean_title, title_pinyin, type_name, None,
                         final_year, 0, final_cover, final_description, final_rating
                     ]
