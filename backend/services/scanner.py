@@ -49,7 +49,7 @@ SEASON_EPISODE_PATTERN = re.compile(r'[Ss](\d{1,2})[Ee](\d{1,3})')
 
 # Single-episode-number markers: 第01集 / EP01 / E01 / 12期
 EPISODE_NUMBER_PATTERN = re.compile(
-    r'(?:第|EP?|集|話|话)\s*(\d+)\s*(?:集|話|话)?|(\d+)\s*期',
+    r'(?:第|EP?|集|話|话)\s*(\d{1,3})(?!\d)\s*(?:集|話|话)?|(\d{1,3})(?!\d)\s*期',
     re.IGNORECASE
 )
 
@@ -341,7 +341,10 @@ class MediaScanner:
             return ""
 
     def _infer_season_from_path(self, video_file: Path, show_folder: Path) -> int:
-        """Look for a "第N季" marker in any folder between show_folder and the file."""
+        """Look for a "第N季" marker in any folder between show_folder and the file.
+
+        Assumes video_file is a descendant of show_folder.
+        """
         for parent in video_file.relative_to(show_folder).parts[:-1]:
             match = SEASON_FOLDER_PATTERN.search(parent)
             if match:
