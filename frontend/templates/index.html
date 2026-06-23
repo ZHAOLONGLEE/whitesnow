@@ -22,6 +22,14 @@
     .quote-section {
         background: linear-gradient(135deg, #2d3028 0%, #1a1c18 100%);
     }
+
+    /* The dropdown popup itself is browser-rendered native chrome with a
+       light background, regardless of the dark button styling on the
+       <select> — without this, option text inherits white-on-white. */
+    #scanCategorySelect option {
+        color: #1a1c18;
+        background: #ffffff;
+    }
 </style>
 {% endblock %}
 
