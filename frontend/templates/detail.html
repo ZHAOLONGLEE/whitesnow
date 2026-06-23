@@ -93,6 +93,8 @@
                             <span id="episodeCount"></span> 集
                         </div>
                     </div>
+
+                    <div id="techInfo" class="flex flex-wrap gap-x-6 gap-y-2 mt-4 text-xs text-white/35"></div>
                 </div>
             </div>
 
@@ -140,13 +142,8 @@
         function renderMediaDetail(data) {
             // Type badge
             const typeBadge = document.getElementById('mediaType');
-            if (data.type === 'anime') {
-                typeBadge.className = 'type-badge anime';
-                typeBadge.textContent = '动漫';
-            } else {
-                typeBadge.className = 'type-badge drama';
-                typeBadge.textContent = '短剧';
-            }
+            typeBadge.className = 'type-badge';
+            typeBadge.textContent = data.type;
 
             // Year
             if (data.year) {
@@ -169,6 +166,18 @@
 
             // Episode count
             document.getElementById('episodeCount').textContent = data.episodes.length;
+
+            // Technical info (parsed from release filenames; may be absent on older scans)
+            const techLabels = [
+                ['大小', data.total_size ? formatFileSize(data.total_size) : null],
+                ['分辨率', data.resolution],
+                ['视频编码', data.video_codec],
+                ['音频编码', data.audio_codec],
+                ['媒介', data.media_source]
+            ].filter(([, value]) => value);
+            document.getElementById('techInfo').innerHTML = techLabels
+                .map(([label, value]) => `<span>${label}: ${value}</span>`)
+                .join('');
 
             // Episodes list
             const episodesContainer = document.getElementById('episodesList');

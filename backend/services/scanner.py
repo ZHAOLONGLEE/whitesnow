@@ -44,6 +44,12 @@ EPISODE_NUMBER_PATTERN = re.compile(
 # 第N季 inside a folder name
 SEASON_FOLDER_PATTERN = re.compile(r'第\s*(\d+)\s*季')
 
+# Technical release-tag markers parsed from a video filename
+RESOLUTION_PATTERN = re.compile(r'(4320p|8K|2160p|4K|1080p|720p|480p)', re.IGNORECASE)
+VIDEO_CODEC_PATTERN = re.compile(r'(H\.?265|HEVC|x265|H\.?264|AVC|x264)', re.IGNORECASE)
+AUDIO_CODEC_PATTERN = re.compile(r'(AAC|DDP|EAC3|AC3|DTS|FLAC)', re.IGNORECASE)
+MEDIA_SOURCE_PATTERN = re.compile(r'(WEB-?DL|WEBRip|BluRay|BDRip|HDTV|DVDRip)', re.IGNORECASE)
+
 
 class MediaScanner:
     """Scan media directories and populate database."""
@@ -98,6 +104,7 @@ class MediaScanner:
         title_pinyin = self._generate_pinyin(title)
         year_match = re.search(r'(20\d{2})', title)
         year = int(year_match.group(1)) if year_match else None
+        tech_info = self._parse_tech_info(video_files[0].name)
 
         local_cover = self._find_cover_image(show_folder, clean_title)
         meta_data = await self.scraper.scrape(title)
@@ -127,13 +134,16 @@ class MediaScanner:
                 result = await conn.execute(
                     """INSERT INTO media (
                         title, title_original, title_clean, title_pinyin, type, category,
-                        year, total_episodes, cover_path, description, rating
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        year, total_episodes, cover_path, description, rating,
+                        resolution, video_codec, audio_codec, media_source
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     [
                         # category is no longer populated — superseded by type (the
                         # literal NAS category-folder name); column kept for schema compat.
                         title, show_folder.name, clean_title, title_pinyin, type_name, None,
-                        final_year, 0, final_cover, final_description, final_rating
+                        final_year, 0, final_cover, final_description, final_rating,
+                        tech_info["resolution"], tech_info["video_codec"],
+                        tech_info["audio_codec"], tech_info["media_source"]
                     ]
                 )
                 await conn.commit()
@@ -163,9 +173,14 @@ class MediaScanner:
 
             await conn.execute(
                 """UPDATE media
-                   SET total_episodes = ?, type = ?, cover_path = ?, description = ?, rating = ?
+                   SET total_episodes = ?, type = ?, cover_path = ?, description = ?, rating = ?,
+                       resolution = ?, video_codec = ?, audio_codec = ?, media_source = ?
                    WHERE id = ?""",
-                [len(video_files), type_name, final_cover, final_description, final_rating, media_id]
+                [
+                    len(video_files), type_name, final_cover, final_description, final_rating,
+                    tech_info["resolution"], tech_info["video_codec"],
+                    tech_info["audio_codec"], tech_info["media_source"], media_id
+                ]
             )
             await conn.commit()
 
@@ -215,6 +230,37 @@ class MediaScanner:
             return f"{full_pinyin} {spaced_pinyin}".lower()
         except Exception:
             return ""
+
+    def _parse_tech_info(self, filename: str) -> Dict[str, Optional[str]]:
+        """Parse resolution/video codec/audio codec/media source from a release filename."""
+        info: Dict[str, Optional[str]] = {
+            "resolution": None, "video_codec": None, "audio_codec": None, "media_source": None
+        }
+
+        match = RESOLUTION_PATTERN.search(filename)
+        if match:
+            token = match.group(1).upper()
+            if token == "4K":
+                info["resolution"] = "2160p"
+            elif token == "8K":
+                info["resolution"] = "4320p"
+            else:
+                info["resolution"] = token.lower()
+
+        match = VIDEO_CODEC_PATTERN.search(filename)
+        if match:
+            token = match.group(1).upper().replace(".", "")
+            info["video_codec"] = "H265" if token in ("H265", "HEVC", "X265") else "H264"
+
+        match = AUDIO_CODEC_PATTERN.search(filename)
+        if match:
+            info["audio_codec"] = match.group(1).upper()
+
+        match = MEDIA_SOURCE_PATTERN.search(filename)
+        if match:
+            info["media_source"] = match.group(1).upper().replace("WEBDL", "WEB-DL")
+
+        return info
 
     def _infer_season_from_path(self, video_file: Path, show_folder: Path) -> int:
         """Look for a "第N季" marker in any folder between show_folder and the file.

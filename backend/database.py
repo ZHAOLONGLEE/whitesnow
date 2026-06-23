@@ -109,6 +109,15 @@ class Database:
                 if "duplicate column" not in str(e).lower():
                     raise
 
+            # Migration: media technical info (parsed from release filenames)
+            for column in ("resolution", "video_codec", "audio_codec", "media_source"):
+                try:
+                    await conn.execute(f"ALTER TABLE media ADD COLUMN {column} TEXT")
+                    await conn.commit()
+                except sqlite3.OperationalError as e:
+                    if "duplicate column" not in str(e).lower():
+                        raise
+
     async def close(self):
         """Close database connection."""
         pass  # aiosqlite connections are short-lived

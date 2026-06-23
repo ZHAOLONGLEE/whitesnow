@@ -93,8 +93,15 @@ async def get_media(media_id: int):
         )
         episodes = [dict(row) for row in await episodes_row.fetchall()]
 
+        size_row = await conn.execute(
+            "SELECT SUM(file_size) as total_size FROM episodes WHERE media_id = ?",
+            [media_id]
+        )
+        total_size = (await size_row.fetchone())["total_size"]
+
     result = dict(media)
     result["episodes"] = episodes
+    result["total_size"] = total_size
     return result
 
 
