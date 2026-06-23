@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Tuple
 from pypinyin import pinyin, Style
 from config import settings
 from database import db
+from services.metadata import MetadataScraper
 
 
 # Common video extensions
@@ -41,7 +42,7 @@ DRAMA_KEYWORDS = {
 }
 
 # Pattern to match episode info at the end of folder names
-EPISODE_PATTERN = re.compile(r'(?:[\.。·_]\s*(?:第\s*)?(\d+)\s*(?:集|话|話|期|EP|E|Episode)?\s*)+$', re.IGNORECASE)
+EPISODE_PATTERN = re.compile(r'(?:[\.。·_]\s*(?:第\s*)?(\d+)\s*(?:集 | 话 | 話 | 期|EP|E|Episode)?\s*)+$', re.IGNORECASE)
 
 
 class MediaScanner:
@@ -52,8 +53,9 @@ class MediaScanner:
         self.items_scanned = 0
         self.items_added = 0
         # Cover storage path
-        self.cover_storage = Path("/app/static/covers")
+        self.cover_storage = Path(settings.cover_storage)
         self.cover_storage.mkdir(parents=True, exist_ok=True)
+        self.scraper = MetadataScraper()
 
     async def scan(self) -> Dict:
         """Main scan entry point."""
@@ -111,8 +113,25 @@ class MediaScanner:
         all_names = [f.name for f in folders]
         media_type = self._determine_type(' '.join(all_names))
 
-        # Find cover image
-        cover_path = self._find_cover_image(folders, title_info["clean_title"])
+        # 1. Find local cover first
+        local_cover = self._find_cover_image(folders, title_info["clean_title"])
+
+        # 2. Scrape metadata (CSPT/TMDB)
+        meta_data = await self.scraper.scrape(title_info["display_title"])
+        
+        # 3. Process scraped data
+        online_cover = None
+        if meta_data.get("cover_url"):
+            online_cover = await self.scraper.download_and_save_cover(
+                meta_data["cover_url"], 
+                title_info["clean_title"]
+            )
+        
+        # Priority: Local > Online
+        final_cover = local_cover or online_cover
+        final_description = meta_data.get("description")
+        final_year = meta_data.get("year") or title_info.get("year")
+        final_rating = meta_data.get("rating")
 
         async with db.connect() as conn:
             # Check if already exists
@@ -131,8 +150,8 @@ class MediaScanner:
                 result = await conn.execute(
                     """INSERT INTO media (
                         title, title_original, title_clean, title_pinyin, type, category,
-                        year, total_episodes, cover_path
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                        year, total_episodes, cover_path, description, rating
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     [
                         title_info["display_title"],
                         first_folder.name,
@@ -140,9 +159,11 @@ class MediaScanner:
                         title_info.get("title_pinyin", ""),
                         media_type,
                         title_info.get("category"),
-                        title_info.get("year"),
+                        final_year,
                         0,
-                        cover_path
+                        final_cover,
+                        final_description,
+                        final_rating
                     ]
                 )
                 await conn.commit()
@@ -159,8 +180,10 @@ class MediaScanner:
 
             # Update total episode count and cover path
             await conn.execute(
-                "UPDATE media SET total_episodes = ?, cover_path = ? WHERE id = ?",
-                [total_episodes, cover_path, media_id]
+                """UPDATE media 
+                   SET total_episodes = ?, cover_path = ?, description = ?, rating = ? 
+                   WHERE id = ?""",
+                [total_episodes, final_cover, final_description, final_rating, media_id]
             )
             await conn.commit()
 

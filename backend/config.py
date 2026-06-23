@@ -25,6 +25,14 @@ class Settings(BaseSettings):
     admin_username: str = "admin"
     admin_password: str = "changeme"
 
+    # Metadata Scraping
+    douban_api_url: str = ""
+    douban_api_token: str = ""
+    tmdb_api_key: str = ""
+    
+    # Cover storage
+    cover_storage: str = "/app/static/covers"
+
     @property
     def is_dev(self) -> bool:
         return self.app_env == "development"
