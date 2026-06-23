@@ -228,16 +228,32 @@
             `).join('');
         }
 
+        // Video.js needs a MIME type hint to pick a playback tech — the
+        // stream URL has no file extension for it to guess from, so map
+        // the episode's stored format explicitly instead of hardcoding one.
+        const FORMAT_MIME_TYPES = {
+            MP4: 'video/mp4',
+            M4V: 'video/mp4',
+            MKV: 'video/x-matroska',
+            WEBM: 'video/webm',
+            AVI: 'video/x-msvideo',
+            MOV: 'video/quicktime',
+            WMV: 'video/x-ms-wmv',
+            FLV: 'video/x-flv',
+            MPG: 'video/mpeg',
+            MPEG: 'video/mpeg',
+            TS: 'video/mp2t',
+            M2TS: 'video/mp2t'
+        };
+
         function playCurrentEpisode() {
             const ep = episodes[currentIndex];
 
             // Update video source
-            // No explicit MIME type: the stream endpoint sets the correct
-            // Content-Type header per file (mp4/mkv/etc.), and hardcoding
-            // video/mp4 here was overriding that for every other format.
             if (player) {
                 player.src({
-                    src: `/api/stream/${mediaId}/${ep.id}`
+                    src: `/api/stream/${mediaId}/${ep.id}`,
+                    type: FORMAT_MIME_TYPES[ep.format] || 'video/mp4'
                 });
 
                 // Restore progress if available
