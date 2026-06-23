@@ -316,7 +316,12 @@
         // Scan media library
         async function startScan(event) {
             try {
-                const response = await fetch('/api/scan/start', { method: 'POST' });
+                const categorySelect = document.getElementById('scanCategorySelect');
+                const category = categorySelect ? categorySelect.value : '';
+                const url = category
+                    ? `/api/scan/start?category=${encodeURIComponent(category)}`
+                    : '/api/scan/start';
+                const response = await fetch(url, { method: 'POST' });
                 const data = await response.json();
 
                 if (response.ok) {

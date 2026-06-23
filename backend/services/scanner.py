@@ -66,12 +66,15 @@ class MediaScanner:
             name.strip() for name in settings.media_exclude_folders.split(",") if name.strip()
         }
 
-    async def scan(self, on_progress=None) -> Dict:
+    async def scan(self, on_progress=None, only_category: Optional[str] = None) -> Dict:
         """Main scan entry point.
 
         on_progress, if given, is awaited as on_progress(items_scanned,
         items_added, total) after every show folder is processed, so a
         caller can report live progress for large libraries.
+
+        only_category, if given, restricts the scan to that one top-level
+        category folder instead of the whole media root.
         """
         self.items_scanned = 0
         self.items_added = 0
@@ -86,6 +89,8 @@ class MediaScanner:
             if category_folder.name.startswith(SYSTEM_FOLDER_PREFIXES):
                 continue
             if category_folder.name in self.exclude_folders:
+                continue
+            if only_category and category_folder.name != only_category:
                 continue
             type_name = category_folder.name
 

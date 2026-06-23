@@ -1,7 +1,8 @@
 """Media scanning API endpoints."""
 
 import asyncio
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from typing import Optional
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Query
 from database import db
 from services.scanner import MediaScanner
 
@@ -12,7 +13,10 @@ scan_task_id = None
 
 
 @router.post("/scan/start")
-async def start_scan(background_tasks: BackgroundTasks):
+async def start_scan(
+    background_tasks: BackgroundTasks,
+    category: Optional[str] = Query(None, description="Scan only this top-level category folder")
+):
     """Start a new media scan."""
     global scan_task_id
 
@@ -35,15 +39,15 @@ async def start_scan(background_tasks: BackgroundTasks):
         scan_task_id = (await row.fetchone())[0]
 
     # Run scan in background
-    background_tasks.add_task(run_scan, scan_task_id)
+    background_tasks.add_task(run_scan, scan_task_id, category)
 
     return {"status": "started", "scan_id": scan_task_id}
 
 
-async def run_scan(scan_id: int):
+async def run_scan(scan_id: int, category: Optional[str] = None):
     """Run media scan in background."""
     import traceback
-    print(f"Starting scan task {scan_id}...")
+    print(f"Starting scan task {scan_id} (category={category or 'all'})...")
 
     async def report_progress(items_scanned: int, items_added: int, total: int):
         async with db.connect() as conn:
@@ -56,7 +60,7 @@ async def run_scan(scan_id: int):
             await conn.commit()
 
     try:
-        result = await scanner.scan(on_progress=report_progress)
+        result = await scanner.scan(on_progress=report_progress, only_category=category)
         print(f"Scan completed: {result}")
 
         async with db.connect() as conn:
