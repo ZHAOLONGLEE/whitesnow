@@ -56,6 +56,9 @@ class MediaScanner:
         self.cover_storage = Path(settings.cover_storage)
         self.cover_storage.mkdir(parents=True, exist_ok=True)
         self.scraper = MetadataScraper()
+        self.exclude_folders = {
+            name.strip() for name in settings.media_exclude_folders.split(",") if name.strip()
+        }
 
     async def scan(self) -> Dict:
         """Main scan entry point."""
@@ -69,6 +72,8 @@ class MediaScanner:
             if not category_folder.is_dir():
                 continue
             if category_folder.name.startswith(SYSTEM_FOLDER_PREFIXES):
+                continue
+            if category_folder.name in self.exclude_folders:
                 continue
             type_name = category_folder.name
 

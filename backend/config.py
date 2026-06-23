@@ -13,6 +13,9 @@ class Settings(BaseSettings):
     # NAS Media Library
     media_root: str = "/media"  # Path inside container (mounted from host)
     media_mount: str = "/media"
+    # Comma-separated top-level category folder names to skip during scan
+    # (e.g. a category folder too large to scan, or a staging/test folder)
+    media_exclude_folders: str = ""
 
     # Database
     database_url: str = "sqlite:///./data/mediascan.db"

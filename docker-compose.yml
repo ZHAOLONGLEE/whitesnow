@@ -21,6 +21,7 @@ services:
       - APP_ENV=${APP_ENV:-development}
       - APP_SECRET=${APP_SECRET:-change-me}
       - MEDIA_ROOT=/media
+      - MEDIA_EXCLUDE_FOLDERS=${MEDIA_EXCLUDE_FOLDERS:-}
       - DATABASE_URL=sqlite:///./data/mediascan.db
       - HOST=0.0.0.0
       - PORT=8000
