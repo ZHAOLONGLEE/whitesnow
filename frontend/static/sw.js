@@ -1,6 +1,6 @@
-const CACHE_NAME = 'whitesnow-v1';
-const STATIC_CACHE = 'whitesnow-static-v1';
-const DYNAMIC_CACHE = 'whitesnow-dynamic-v1';
+const CACHE_NAME = 'whitesnow-v2';
+const STATIC_CACHE = 'whitesnow-static-v2';
+const DYNAMIC_CACHE = 'whitesnow-dynamic-v2';
 
 // Static assets to cache
 const STATIC_ASSETS = [
@@ -73,6 +73,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Page navigations (/, /media/:id, /play/:id/:ep) are server-rendered and
+  // carry the app's JS — always prefer the network so fixes/deploys take
+  // effect immediately, falling back to a cached copy only when offline.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const responseClone = response.clone();
+          caches.open(DYNAMIC_CACHE).then((cache) => {
+            cache.put(request, responseClone);
+          });
+          return response;
+        })
+        .catch(() => caches.match(request).then((cached) => cached || caches.match('/')))
+    );
+    return;
+  }
+
   // Static assets - cache first, fallback to network
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
@@ -85,11 +103,6 @@ self.addEventListener('fetch', (event) => {
           cache.put(request, responseClone);
         });
         return response;
-      }).catch(() => {
-        // Return offline page for navigation requests
-        if (request.mode === 'navigate') {
-          return caches.match('/');
-        }
       });
     })
   );
