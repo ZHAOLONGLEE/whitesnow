@@ -60,7 +60,7 @@
                             </svg>
                             扫描媒体库
                         </button>
-                        <a href="?type=anime" class="btn-secondary px-7 py-3 rounded-2xl text-sm font-medium flex items-center gap-2">
+                        <a href="#library" class="btn-secondary px-7 py-3 rounded-2xl text-sm font-medium flex items-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <polygon points="5 3 19 12 5 21 5 3"/>
                             </svg>
@@ -79,14 +79,7 @@
                         <div class="text-3xl font-semibold text-leaf mb-1" id="statEpisodes">-</div>
                         <div class="text-sm text-white/40">总集数</div>
                     </div>
-                    <div class="stat-card bg-white/[0.04] border border-white/[0.06] rounded-2xl p-6">
-                        <div class="text-3xl font-semibold text-white/80 mb-1" id="statAnime">-</div>
-                        <div class="text-sm text-white/40">动漫</div>
-                    </div>
-                    <div class="stat-card bg-white/[0.04] border border-white/[0.06] rounded-2xl p-6">
-                        <div class="text-3xl font-semibold text-white/80 mb-1" id="statDrama">-</div>
-                        <div class="text-sm text-white/40">短剧</div>
-                    </div>
+                    <div id="statTypesContainer" class="col-span-2 flex flex-wrap gap-3"></div>
                 </div>
             </div>
         </div>
@@ -129,13 +122,11 @@
     </section>
 
     <!-- Media Library Section -->
-    <section class="max-w-[1400px] mx-auto px-6 lg:px-8 pb-16">
+    <section id="library" class="max-w-[1400px] mx-auto px-6 lg:px-8 pb-16">
         <!-- Filter bar -->
         <div class="flex items-center justify-between mb-8">
-            <div class="flex items-center gap-2">
+            <div id="filterButtons" class="flex items-center gap-2 flex-wrap">
                 <button onclick="setFilter('')" class="filter-btn px-5 py-2.5 rounded-xl text-sm font-medium active" data-type="">全部</button>
-                <button onclick="setFilter('anime')" class="filter-btn px-5 py-2.5 rounded-xl text-sm font-medium" data-type="anime">动漫</button>
-                <button onclick="setFilter('drama')" class="filter-btn px-5 py-2.5 rounded-xl text-sm font-medium" data-type="drama">短剧</button>
             </div>
             <div class="text-sm text-white/30" id="resultCount"></div>
         </div>
@@ -203,13 +194,6 @@
             document.getElementById('searchInput').value = currentSearch;
         }
 
-        // Set filter from URL
-        if (currentType) {
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.type === currentType);
-            });
-        }
-
         function setFilter(type) {
             currentType = type;
             currentPage = 1;
@@ -229,22 +213,42 @@
             loadMedia();
         }
 
+        // Render filter buttons + stat chips from the actual types in the database
+        function renderTypeUI(items) {
+            const filterContainer = document.getElementById('filterButtons');
+            items.forEach(t => {
+                const btn = document.createElement('button');
+                btn.className = 'filter-btn px-5 py-2.5 rounded-xl text-sm font-medium';
+                btn.dataset.type = t.type;
+                btn.textContent = t.type;
+                btn.onclick = () => setFilter(t.type);
+                filterContainer.appendChild(btn);
+            });
+
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.type === (currentType || ''));
+            });
+
+            document.getElementById('statTypesContainer').innerHTML = items.map(t => `
+                <div class="stat-card bg-white/[0.04] border border-white/[0.06] rounded-2xl px-5 py-3 flex items-center gap-2">
+                    <span class="text-lg font-semibold text-white/80">${t.count}</span>
+                    <span class="text-sm text-white/40">${t.type}</span>
+                </div>
+            `).join('');
+        }
+
         // Load stats
         async function loadStats() {
             try {
-                const [allRes, animeRes, dramaRes] = await Promise.all([
-                    fetch('/api/media?page=1&page_size=1'),
-                    fetch('/api/media?type=anime&page=1&page_size=1'),
-                    fetch('/api/media?type=drama&page=1&page_size=1')
+                const [typesRes, allRes] = await Promise.all([
+                    fetch('/api/media/types'),
+                    fetch('/api/media?page=1&page_size=1')
                 ]);
-                
-                const [allData, animeData, dramaData] = await Promise.all([
-                    allRes.json(), animeRes.json(), dramaRes.json()
-                ]);
+                const typesData = await typesRes.json();
+                const allData = await allRes.json();
 
+                renderTypeUI(typesData.items);
                 document.getElementById('statTotal').textContent = allData.total || '0';
-                document.getElementById('statAnime').textContent = animeData.total || '0';
-                document.getElementById('statDrama').textContent = dramaData.total || '0';
 
                 // Calculate total episodes
                 let totalEpisodes = 0;
@@ -295,7 +299,7 @@
                     <h3 class="text-sm font-medium text-white/70 truncate group-hover:text-white transition-colors">${item.title}</h3>
                     <div class="flex items-center justify-between mt-1.5">
                         <span class="text-xs text-white/25">${item.year || ''}</span>
-                        <span class="text-xs text-white/25">${item.type === 'anime' ? '动漫' : '短剧'}</span>
+                        <span class="text-xs text-white/25">${item.type}</span>
                     </div>
                 </a>
             `).join('');
