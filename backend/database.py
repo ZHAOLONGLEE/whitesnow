@@ -1,4 +1,5 @@
 import aiosqlite
+import sqlite3
 import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -97,6 +98,16 @@ class Database:
                 CREATE INDEX IF NOT EXISTS idx_play_history_media ON play_history(media_id);
                 CREATE INDEX IF NOT EXISTS idx_play_history_episode ON play_history(episode_id);
             """)
+
+            # Migration: episodes.season (added for multi-season shows)
+            try:
+                await conn.execute(
+                    "ALTER TABLE episodes ADD COLUMN season INTEGER NOT NULL DEFAULT 1"
+                )
+                await conn.commit()
+            except sqlite3.OperationalError as e:
+                if "duplicate column" not in str(e).lower():
+                    raise
 
     async def close(self):
         """Close database connection."""
