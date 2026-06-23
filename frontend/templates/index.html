@@ -189,9 +189,15 @@
         // State
         currentType = new URLSearchParams(window.location.search).get('type');
         currentSearch = new URLSearchParams(window.location.search).get('search') || '';
-        
+
         if (currentSearch) {
             document.getElementById('searchInput').value = currentSearch;
+        }
+
+        function escapeHtml(s) {
+            const div = document.createElement('div');
+            div.textContent = s ?? '';
+            return div.innerHTML;
         }
 
         function setFilter(type) {
@@ -232,7 +238,7 @@
             document.getElementById('statTypesContainer').innerHTML = items.map(t => `
                 <div class="stat-card bg-white/[0.04] border border-white/[0.06] rounded-2xl px-5 py-3 flex items-center gap-2">
                     <span class="text-lg font-semibold text-white/80">${t.count}</span>
-                    <span class="text-sm text-white/40">${t.type}</span>
+                    <span class="text-sm text-white/40">${escapeHtml(t.type)}</span>
                 </div>
             `).join('');
         }
@@ -299,7 +305,7 @@
                     <h3 class="text-sm font-medium text-white/70 truncate group-hover:text-white transition-colors">${item.title}</h3>
                     <div class="flex items-center justify-between mt-1.5">
                         <span class="text-xs text-white/25">${item.year || ''}</span>
-                        <span class="text-xs text-white/25">${item.type}</span>
+                        <span class="text-xs text-white/25">${escapeHtml(item.type)}</span>
                     </div>
                 </a>
             `).join('');
