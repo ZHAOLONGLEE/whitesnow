@@ -23,6 +23,9 @@ COVER_EXTENSIONS = {
     ".jpg", ".jpeg", ".png", ".webp"
 }
 
+# QNAP system folders (e.g. @Recycle, @Recently-Snapshot) are never real categories
+SYSTEM_FOLDER_PREFIXES = ("@", ".")
+
 # Common cover file names
 COVER_NAMES = {
     "poster", "cover", "folder", "thumb", "thumbnail",
@@ -64,6 +67,8 @@ class MediaScanner:
 
         for category_folder in sorted(self.media_root.iterdir()):
             if not category_folder.is_dir():
+                continue
+            if category_folder.name.startswith(SYSTEM_FOLDER_PREFIXES):
                 continue
             type_name = category_folder.name
 
