@@ -63,6 +63,17 @@ async def list_media(
     }
 
 
+@router.get("/media/types")
+async def list_types():
+    """List distinct media types with counts, for dynamic filter UI."""
+    async with db.connect() as conn:
+        rows = await conn.execute(
+            "SELECT type, COUNT(*) as count FROM media GROUP BY type ORDER BY type"
+        )
+        items = [dict(row) for row in await rows.fetchall()]
+    return {"items": items}
+
+
 @router.get("/media/{media_id}")
 async def get_media(media_id: int):
     """Get media detail with episode list."""
@@ -77,7 +88,7 @@ async def get_media(media_id: int):
             raise HTTPException(status_code=404, detail="Media not found")
 
         episodes_row = await conn.execute(
-            "SELECT * FROM episodes WHERE media_id = ? ORDER BY episode_number ASC",
+            "SELECT * FROM episodes WHERE media_id = ? ORDER BY season ASC, episode_number ASC",
             [media_id]
         )
         episodes = [dict(row) for row in await episodes_row.fetchall()]
@@ -92,7 +103,7 @@ async def list_episodes(media_id: int):
     """List episodes for a specific media."""
     async with db.connect() as conn:
         rows = await conn.execute(
-            "SELECT * FROM episodes WHERE media_id = ? ORDER BY episode_number ASC",
+            "SELECT * FROM episodes WHERE media_id = ? ORDER BY season ASC, episode_number ASC",
             [media_id]
         )
         episodes = [dict(row) for row in await rows.fetchall()]
