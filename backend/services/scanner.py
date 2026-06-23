@@ -44,6 +44,18 @@ DRAMA_KEYWORDS = {
 # Pattern to match episode info at the end of folder names
 EPISODE_PATTERN = re.compile(r'(?:[\.。·_]\s*(?:第\s*)?(\d+)\s*(?:集 | 话 | 話 | 期|EP|E|Episode)?\s*)+$', re.IGNORECASE)
 
+# S01E01 style season+episode marker
+SEASON_EPISODE_PATTERN = re.compile(r'[Ss](\d{1,2})[Ee](\d{1,3})')
+
+# Single-episode-number markers: 第01集 / EP01 / E01 / 12期
+EPISODE_NUMBER_PATTERN = re.compile(
+    r'(?:第|EP?|集|話|话)\s*(\d+)\s*(?:集|話|话)?|(\d+)\s*期',
+    re.IGNORECASE
+)
+
+# 第N季 inside a folder name
+SEASON_FOLDER_PATTERN = re.compile(r'第\s*(\d+)\s*季')
+
 
 class MediaScanner:
     """Scan media directories and populate database."""
@@ -327,6 +339,38 @@ class MediaScanner:
             return f"{full_pinyin} {spaced_pinyin}".lower()
         except Exception:
             return ""
+
+    def _infer_season_from_path(self, video_file: Path, show_folder: Path) -> int:
+        """Look for a "第N季" marker in any folder between show_folder and the file."""
+        for parent in video_file.relative_to(show_folder).parts[:-1]:
+            match = SEASON_FOLDER_PATTERN.search(parent)
+            if match:
+                return int(match.group(1))
+        return 1
+
+    def _parse_season_episode(
+        self, video_file: Path, show_folder: Path, season_counters: Dict[int, int]
+    ) -> Tuple[int, int, str]:
+        """Parse season + episode number from a video filename."""
+        name = video_file.stem
+
+        match = SEASON_EPISODE_PATTERN.search(name)
+        if match:
+            season = int(match.group(1))
+            episode_number = int(match.group(2))
+            title = name[:match.start()].strip(' ._-') or f"第 {episode_number} 集"
+            return season, episode_number, title
+
+        season = self._infer_season_from_path(video_file, show_folder)
+
+        match = EPISODE_NUMBER_PATTERN.search(name)
+        if match:
+            episode_number = int(match.group(1) or match.group(2))
+            title = name[:match.start()].strip(' ._-') or f"第 {episode_number} 集"
+            return season, episode_number, title
+
+        season_counters[season] = season_counters.get(season, 0) + 1
+        return season, season_counters[season], name
 
     def _determine_type(self, name: str) -> str:
         """Determine if media is anime or drama."""
