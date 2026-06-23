@@ -27,6 +27,19 @@ async def lifespan(app: FastAPI):
     # Startup
     await db.init_db()
     app.state.db = db  # Make db available to request handlers
+
+    # A "running" scan_log row can only be left over from a previous process
+    # that died/restarted mid-scan (e.g. a redeploy) — it can't still be
+    # running now, so clear it or it would permanently block new scans.
+    async with db.connect() as conn:
+        await conn.execute(
+            """UPDATE scan_log SET status = 'failed',
+               error_message = 'interrupted by server restart',
+               finished_at = CURRENT_TIMESTAMP
+               WHERE status = 'running'"""
+        )
+        await conn.commit()
+
     print(f"✅ WhiteSnow started in {settings.app_env} mode")
     print(f"📁 Media root: {settings.media_root}")
     yield
