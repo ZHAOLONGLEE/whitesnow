@@ -84,7 +84,7 @@ class MediaScanner:
             return
 
         title = show_folder.name
-        clean_title = re.sub(r'[^a-zA-Z0-9一-鿿]', '', title).lower()
+        clean_title = re.sub(r'[^a-zA-Z0-9\u4e00-\u9fff]', '', title).lower()
         title_pinyin = self._generate_pinyin(title)
         year_match = re.search(r'(20\d{2})', title)
         year = int(year_match.group(1)) if year_match else None
